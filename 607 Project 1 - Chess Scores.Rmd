@@ -1,0 +1,174 @@
+---
+title: "607 Project 1 - Fall 2021"
+author: "Mark Schmalfeld"
+date: "9/16/2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(readr)
+require(dplyr)
+require(ggplot2)
+require(RCurl)
+require(tidyverse)
+
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r Chess Text file ELO tournment data - load from Github}
+#Raw data link for gibhub file 
+#https://raw.githubusercontent.com/schmalmr/Project-1-607/main/tournamentinfo.txt
+
+#Assign chess data to chessresult and read/ extract 
+chessresult <- getURL('https://raw.githubusercontent.com/schmalmr/Project-1-607/main/tournamentinfo.txt')
+
+extract_chessresults <- read.csv(text = chessresult)
+ tibble (extract_chessresults)
+
+ 
+```
+
+
+Use R for Data Sciences approach (page 209) to divide the targeted data into individual variable targets to establish regex for each target to be pulled from the dataset.  
+
+```{r establish the required regex requirements to pull the specific data}
+
+# Identification of the index # and then name starting 2 spaces after |
+regname <- "[[:digit:]]+\\s+[|](\\s+[:alpha:]+){2,}"
+# extract player name from chess results
+player_name <- unlist(str_extract_all(extract_chessresults,regname))
+
+# The state is the white space with two capital alpha characters followed by space and | to end the section
+regstate <- "(?<=\\s)[:upper:]{2}(?=\\s[|])"
+# extract the state from the chess results file
+state <- unlist(str_extract_all(extract_chessresults,regstate))
+
+
+# Total points is the only figure with the characteristic of a digit-period(puncation) the digit and this is used to find the total points
+regtotalpoints <-"[:digit:][:punct:][:digit:]"
+
+#extract the points through string extract 
+total_points <- unlist(str_extract_all(extract_chessresults,regtotalpoints))
+
+# starting chess rating score for players 
+rplayerstartingscore <- "(?<=R:\\s{1,2})[:digit:]+"
+player_starting_score <- unlist(str_extract_all(extract_chessresults,rplayerstartingscore))
+
+
+# pull out the players final scores
+regplayersfinalscore <- "(?<=->\\s?)[:digit:]+"
+player_final_score <- unlist(str_extract_all(extract_chessresults,regplayersfinalscore))
+
+
+# Extract the games section from the file 
+reggame <- "(?<=[|][:digit:][:punct:][:digit:][:space:]{1,2}[|]{1}).{42}"
+game <- unlist(str_extract_all(extract_chessresults,reggame))
+
+regdigit<-"(?<=[:alpha:]//s)[:digit:].{1,2}"
+
+
+
+player_name
+state
+player_starting_score
+total_points
+game
+
+# Create data frame with the various extracted columns
+chess_table <- data.frame( player_name, state,  player_starting_score,
+  player_final_score,total_points,game)
+
+
+col_names <- c("game_1","game_2","game_3","game_4","game_5","game_6","game_7")
+chess_table <- chess_table%>%
+  separate(game,col_names,sep = "[|]")
+
+
+chess_table %>%
+  select(game_1, game_2,game_3,game_4,game_5,game_6,game_7)
+
+
+
+```
+```{r}
+
+
+
+#format game columns as numeric 
+
+chess_table$game_1 = as.numeric(gsub(".*?([0-9]+).*", "\\1", chess_table$game_1)) 
+chess_table$game_2 = as.numeric(gsub(".*?([0-9]+).*", "\\1", chess_table$game_2))   
+chess_table$game_3 = as.numeric(gsub(".*?([0-9]+).*", "\\1", chess_table$game_3)) 
+chess_table$game_4 = as.numeric(gsub(".*?([0-9]+).*", "\\1", chess_table$game_4)) 
+chess_table$game_5 = as.numeric(gsub(".*?([0-9]+).*", "\\1", chess_table$game_5)) 
+chess_table$game_6 = as.numeric(gsub(".*?([0-9]+).*", "\\1", chess_table$game_6)) 
+chess_table$game_7 = as.numeric(gsub(".*?([0-9]+).*", "\\1", chess_table$game_7)) 
+
+
+index<-add_count(chess_table)
+
+chess_table %>%
+  select(player_starting_score,game_1, game_2,game_3,game_4,game_5,game_6,game_7)
+
+
+chess_table$player_starting_score <- as.numeric(as.character(chess_table$player_starting_score))
+chess_table$toal_points <- as.numeric(as.character(chess_table$total_points))
+
+
+#Seperate the column of player name into player index and name
+chess_table<-separate(data = chess_table, col = player_name, into = c("player_index", "Name"), sep = "\\|")
+
+# convert index character to numberic
+chess_table$player_index <- as.numeric(as.character(chess_table$player_index))
+chess_table
+
+#Create chess table to store opponent starting scores
+chess_table_oppscores<-chess_table
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+library(dplyr)
+library(tidyr)
+
+# Developing approach to index against the player index and the game columns to find and replace with the approach starting player scores before taking row means
+
+#chess_table_oppscores %>%
+#if (chess_table_oppscores$player_index==chess_table_oppscores$game_1), #chess_table_oppscores$game_1==chess_table_oppscores$player_starting_score, #{chess_table_oppscores$game_1==0}
+
+
+#chess_table_oppscores <- chess_table_oppscores %>% mutate (chess_table_oppscores$game_1 = case_when(chess_table_oppscores$player_index== chess_table_oppscores%game_1,TRUE ~ chess_table_oppscores$game1=chess_table_oppscores$player_starting_score))
+
+
+#chess_table_oppscores %>%
+#   gather(key = "player_index") %>%
+#   left_join(lookup, by = "col_names") %>%
+#   spread(key = player_index, value = player_starting_score)
+
+
+result = chess_table_oppscores %>% 
+  # need to add an overall average opponent pre rating when done above
+  select(Name, state, total_points, player_starting_score) %>% 
+  ungroup() %>% 
+  distinct()
+
+# Store a csv
+
+write_csv(result, "/Users/mark/607_Project_1_output.csv")
+
+
+
+```
+
